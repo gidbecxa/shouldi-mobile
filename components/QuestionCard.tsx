@@ -61,6 +61,21 @@ export function QuestionCard({
                 CLOSED
               </Text>
             </View>
+          ) : question.is_trending ? (
+            <View
+              style={{
+                borderRadius: 7,
+                backgroundColor: "rgba(245, 158, 11, 0.15)",
+                borderWidth: 1,
+                borderColor: "#F59E0B",
+                paddingHorizontal: 8,
+                paddingVertical: 3,
+              }}
+            >
+              <Text style={{ color: "#F59E0B", fontFamily: typography.mono, fontSize: 11, letterSpacing: 0.4 }}>
+                🔥 Trending
+              </Text>
+            </View>
           ) : (
             <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
               <View

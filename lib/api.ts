@@ -17,6 +17,7 @@ export type Question = {
   created_at: string;
   user_voted: VoteValue | null;
   is_own: boolean;
+  is_trending: boolean;
 };
 
 export type AuthSession = {
@@ -184,4 +185,38 @@ export async function deleteMyQuestion(accessToken: string, questionId: string) 
 
 export function getShareCardUrl(questionId: string) {
   return `${API_URL}/questions/${questionId}/share-card`;
+}
+
+export async function registerTimezone(accessToken: string) {
+  const timezone_offset = -(new Date().getTimezoneOffset());
+  const response = await fetch(`${API_URL}/users/me/timezone`, {
+    method: "PATCH",
+    headers: buildHeaders(accessToken),
+    body: JSON.stringify({ timezone_offset }),
+  });
+
+  return readJsonOrThrow<{ ok: true }>(response, "Failed to register timezone.");
+}
+
+export async function logShare(accessToken: string, questionId: string, shareType: "image" | "link" | "copy") {
+  try {
+    await fetch(`${API_URL}/questions/${questionId}/share`, {
+      method: "POST",
+      headers: buildHeaders(accessToken),
+      body: JSON.stringify({ share_type: shareType }),
+    });
+  } catch {
+    // Fire-and-forget — swallow errors
+  }
+}
+
+export type LiveStats = {
+  active_voters_last_hour: number;
+  votes_today: number;
+  questions_today: number;
+};
+
+export async function getLiveStats() {
+  const response = await fetch(`${API_URL}/stats/live`);
+  return readJsonOrThrow<LiveStats>(response, "Failed to fetch live stats.");
 }

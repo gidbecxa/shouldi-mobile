@@ -1,6 +1,7 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { BlurView } from "expo-blur";
+import * as Linking from "expo-linking";
 import {
   GoogleSignin,
   statusCodes as GoogleStatusCodes,
@@ -16,7 +17,7 @@ import { ThemeProvider, DefaultTheme } from "@react-navigation/native";
 import * as SecureStore from "expo-secure-store";
 import * as SplashScreen from "expo-splash-screen";
 import { useFonts } from "expo-font";
-import { Tabs } from "expo-router";
+import { Tabs, useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { Platform, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -27,7 +28,7 @@ import { FeedTabIcon } from "../components/icons/FeedTabIcon";
 import { MineTabIcon } from "../components/icons/MineTabIcon";
 import { colors } from "../constants/colors";
 import { typeScale, typography } from "../constants/typography";
-import { fetchMe, signInWithGoogle, updatePushToken } from "../lib/api";
+import { fetchMe, signInWithGoogle, updatePushToken, registerTimezone } from "../lib/api";
 import { getDeviceId } from "../lib/deviceId";
 import { requestPushToken } from "../lib/notifications";
 import { useUserStore } from "../store/userStore";
@@ -76,6 +77,7 @@ async function savePersistedSession(payload: PersistedSession) {
 }
 
 export default function RootLayout() {
+  const router = useRouter();
   const deviceId = useUserStore((state) => state.deviceId);
   const accessToken = useUserStore((state) => state.accessToken);
   const setDeviceId = useUserStore((state) => state.setDeviceId);
@@ -158,7 +160,7 @@ export default function RootLayout() {
   const onboardingSlides = [
     {
       eyebrow: "Signal",
-      title: "Ask with zero social pressure",
+      title: "              ",
       description: "Drop a short dilemma anonymously. No profile, no context switch, no performance.",
     },
     {
@@ -187,6 +189,41 @@ export default function RootLayout() {
     }),
     [],
   );
+
+  useEffect(() => {
+    function handleDeepLink(url: string) {
+      const parsed = Linking.parse(url);
+      const normalizedPath = parsed.path?.replace(/^\/+/, "") ?? "";
+      const normalizedHost = parsed.hostname?.toLowerCase() ?? "";
+
+      let id: string | undefined;
+      if (normalizedPath.startsWith("q/")) {
+        id = normalizedPath.slice(2);
+      } else if (normalizedHost === "q" && normalizedPath) {
+        id = normalizedPath;
+      } else if (parsed.queryParams?.id && typeof parsed.queryParams.id === "string") {
+        id = parsed.queryParams.id;
+      }
+
+      if (id?.trim()) {
+        router.push(`/question/${id.trim()}`);
+      }
+    }
+
+    void Linking.getInitialURL().then((url) => {
+      if (url) {
+        handleDeepLink(url);
+      }
+    });
+
+    const subscription = Linking.addEventListener("url", ({ url }) => {
+      handleDeepLink(url);
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [router]);
 
   useEffect(() => {
     let isMounted = true;
@@ -303,6 +340,20 @@ export default function RootLayout() {
       isMounted = false;
     };
   }, [accessToken, setPushToken]);
+
+  useEffect(() => {
+    if (!accessToken) return;
+    registerTimezone(accessToken).catch(() => {});
+  }, [accessToken]);
+
+  useEffect(() => {
+    AsyncStorage.getItem("session_count")
+      .then((val) => {
+        const count = Math.min(parseInt(val ?? "0", 10) + 1, 99);
+        return AsyncStorage.setItem("session_count", String(count));
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     let mounted = true;

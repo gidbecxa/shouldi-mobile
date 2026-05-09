@@ -16,7 +16,7 @@ import { colors } from "../constants/colors";
 import { categories } from "../constants/categories";
 import { spacing } from "../constants/spacing";
 import { typeScale, typography } from "../constants/typography";
-import { createQuestion } from "../lib/api";
+import { createQuestion, getLiveStats } from "../lib/api";
 import { useFeedStore } from "../store/feedStore";
 import { useMineStore } from "../store/mineStore";
 import { useUserStore } from "../store/userStore";
@@ -83,6 +83,11 @@ export default function PostScreen() {
   const [durationHours, setDurationHours] = useState<(typeof durations)[number]["value"]>(24);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [isPosting, setIsPosting] = useState(false);
+  const [activeVoters, setActiveVoters] = useState(0);
+
+  useEffect(() => {
+    getLiveStats().then((data) => setActiveVoters(data.active_voters_last_hour)).catch(() => {});
+  }, []);
 
   const charCount = question.length;
   const counterColor =
@@ -272,6 +277,20 @@ export default function PostScreen() {
             {isPosting ? "Posting..." : isTooLong ? "Too long" : "Publish Question"}
           </Text>
         </PressableScale>
+
+        {activeVoters > 10 && (
+          <Text
+            style={{
+              textAlign: "center",
+              marginTop: 4,
+              fontSize: 13,
+              fontFamily: typography.mono,
+              color: "#52525B",
+            }}
+          >
+            {activeVoters.toLocaleString()} people voting right now
+          </Text>
+        )}
 
         {statusMessage ? (
           <Text

@@ -2,6 +2,7 @@ import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Sharing from "expo-sharing";
+import * as StoreReview from "expo-store-review";
 import { useEffect, useRef, useState } from "react";
 import {
   Platform,
@@ -12,6 +13,7 @@ import {
 } from "react-native";
 import { captureRef } from "react-native-view-shot";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { AppBackdrop } from "../../components/AppBackdrop";
 import { DetailHeader } from "../../components/DetailHeader";
@@ -29,6 +31,7 @@ import { typeScale, typography } from "../../constants/typography";
 import { getTimeLeftLabel, getTimeLeftShortLabel } from "../../lib/time";
 import {
   fetchQuestionById,
+  logShare,
   Question,
   reportQuestion,
   voteOnQuestion,
@@ -61,7 +64,9 @@ export default function QuestionDetailScreen() {
   const [reportSheetVisible, setReportSheetVisible] = useState(false);
   const [selectedReportReason, setSelectedReportReason] = useState<ReportReason>("inappropriate");
   const shareCardRef = useRef<View>(null);
-  const shareUrl = question ? `https://shouldi.fun/q/${question.id}` : "";
+  const shareUrl = question ? `https://shouldi.fun/q/${question.id}?ref=link&via=app` : "";
+  const cardUrl = question ? `https://shouldi.fun/q/${question.id}?ref=card&via=app` : "";
+  const copyUrl = question ? `https://shouldi.fun/q/${question.id}?ref=copy&via=app` : "";
 
   useEffect(() => {
     const load = async () => {
@@ -79,6 +84,23 @@ export default function QuestionDetailScreen() {
 
     void load();
   }, [accessToken, params.id]);
+
+  const maybePromptRating = async (totalVotes: number) => {
+    try {
+      const alreadyPrompted = await AsyncStorage.getItem("rating_prompted");
+      if (alreadyPrompted === "true") return;
+      const sessionCount = parseInt((await AsyncStorage.getItem("session_count")) ?? "0", 10);
+      if (sessionCount < 3 || totalVotes < 100) return;
+      const isAvailable = await StoreReview.isAvailableAsync();
+      if (!isAvailable) return;
+      setTimeout(() => {
+        void StoreReview.requestReview();
+        void AsyncStorage.setItem("rating_prompted", "true");
+      }, 3000);
+    } catch {
+      // Non-fatal
+    }
+  };
 
   const handleVote = async (vote: VoteValue) => {
     if (!accessToken || !params.id || !question || question.user_voted) {
@@ -121,6 +143,7 @@ export default function QuestionDetailScreen() {
 
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       void maybeShowFirstVoteNudge(setShowNudge);
+      void maybePromptRating(payload.yes_count + payload.no_count);
     } catch (error) {
       setQuestion(previous);
       setStatusMessage(error instanceof Error ? error.message : "Failed to submit vote.");
@@ -144,8 +167,7 @@ export default function QuestionDetailScreen() {
         result: "tmpfile",
       });
 
-      const shareUrl = `https://shouldi.fun/q/${question.id}`;
-      const shareMessage = `${question.text}\n\nVote now → ${shareUrl}`;
+      const shareMessage = `${question.text}\n\nVote now → ${cardUrl}`;
 
       const canShare = await Sharing.isAvailableAsync();
       if (canShare) {
@@ -155,9 +177,10 @@ export default function QuestionDetailScreen() {
           UTI: "public.png",
         });
       } else {
-        await Share.share({ message: shareMessage, url: Platform.OS === "ios" ? shareUrl : undefined });
+        await Share.share({ message: shareMessage, url: Platform.OS === "ios" ? cardUrl : undefined });
       }
 
+      if (accessToken) void logShare(accessToken, question.id, "image");
       await Haptics.selectionAsync();
     } catch (error) {
       setStatusMessage(error instanceof Error ? error.message : "Failed to share.");
@@ -177,6 +200,8 @@ export default function QuestionDetailScreen() {
       message: text,
       url: Platform.OS === "ios" ? shareUrl : undefined,
     });
+
+    if (accessToken) void logShare(accessToken, question.id, "link");
   };
 
   const handleCopyLink = async () => {
@@ -184,10 +209,11 @@ export default function QuestionDetailScreen() {
       return;
     }
 
-    await Clipboard.setStringAsync(shareUrl);
+    await Clipboard.setStringAsync(copyUrl);
     setStatusMessage("Link copied!");
     setMenuSheetVisible(false);
     setShareSheetVisible(false);
+    if (accessToken) void logShare(accessToken, question.id, "copy");
   };
 
   const handleReport = async (reason: ReportReason) => {
