@@ -28,6 +28,7 @@ import { realtimeClient } from "../lib/realtime";
 import { useFeedStore } from "../store/feedStore";
 import { useMineStore } from "../store/mineStore";
 import { useUserStore } from "../store/userStore";
+import { useVotedStore } from "../store/votedStore";
 
 function extractRealtimeId(payloadRow: unknown): string | null {
   if (!payloadRow || typeof payloadRow !== "object") {
@@ -56,10 +57,12 @@ export default function FeedScreen() {
     restoreQuestion,
   } = useFeedStore();
   const patchMineQuestion = useMineStore((state) => state.patchMineQuestion);
-  const [sortMode, setSortMode] = useState<"recent" | "hot">("hot");
+  const [sortMode, setSortMode] = useState<"recent" | "hot">("recent");
   const [pendingVotes, setPendingVotes] = useState<Record<string, VoteValue>>({});
   const [tabWidth, setTabWidth] = useState(0);
   const tabUnderlineX = useRef(new Animated.Value(0)).current;
+  const votedMap = useVotedStore((state) => state.votes);
+  const setVotedLocal = useVotedStore((state) => state.setVoted);
 
   useEffect(() => {
     if (!accessToken) {
@@ -122,7 +125,7 @@ export default function FeedScreen() {
     }
 
     Animated.spring(tabUnderlineX, {
-      toValue: sortMode === "hot" ? 0 : tabWidth,
+      toValue: sortMode === "recent" ? 0 : tabWidth,
       damping: 20,
       stiffness: 300,
       useNativeDriver: false,
@@ -144,6 +147,7 @@ export default function FeedScreen() {
 
     try {
       await voteOnQuestion(accessToken, questionId, vote);
+      setVotedLocal(questionId, vote);
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (submitError) {
       if (previousFeed) {
@@ -178,117 +182,145 @@ export default function FeedScreen() {
   }, [router]);
 
   const renderItem = useCallback(
-    ({ item, index }: { item: Question; index: number }) => (
-      <FeedQuestionCard
-        question={item}
-        hasVoted={Boolean(item.user_voted)}
-        isVoteSubmitting={Boolean(pendingVotes[item.id])}
-        pendingVote={pendingVotes[item.id] ?? null}
-        animateDelay={(index % 8) * 50}
-        onVote={stableOnVote}
-        onOpen={stableOnOpen}
-      />
-    ),
-    [pendingVotes, stableOnVote, stableOnOpen],
+    ({ item, index }: { item: Question; index: number }) => {
+      const localVote = votedMap[item.id] ?? null;
+      const effectiveVote = localVote ?? item.user_voted;
+      return (
+        <FeedQuestionCard
+          question={{ ...item, user_voted: effectiveVote }}
+          hasVoted={Boolean(effectiveVote)}
+          isVoteSubmitting={Boolean(pendingVotes[item.id])}
+          pendingVote={pendingVotes[item.id] ?? null}
+          animateDelay={(index % 8) * 50}
+          onVote={stableOnVote}
+          onOpen={stableOnOpen}
+        />
+      );
+    },
+    [pendingVotes, stableOnVote, stableOnOpen, votedMap],
   );
 
   return (
     <View collapsable={false} style={{ flex: 1 }}>
+
+      {/* ── Sticky Header ─────────────────────────────────────────── */}
+      <View style={{
+        backgroundColor: 'rgba(9,9,11,0.97)',
+        paddingTop: insets.top + 8,
+        paddingHorizontal: 20,
+        paddingBottom: 0,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border,
+      }}>
+        {/* Row 1: Logo + Settings */}
+        <View style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          height: 44,
+          marginBottom: 4,
+        }}>
+          <Text style={{
+            fontFamily: 'Syne_800ExtraBold',
+            fontSize: 26,
+            color: colors.brand,
+            letterSpacing: -0.5,
+          }}>
+            Should I?
+          </Text>
+          <PressableScale
+            onPress={() => router.push('/settings')}
+            style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}
+          >
+            <Ionicons name="settings-outline" size={22} color={colors.textMuted} />
+          </PressableScale>
+        </View>
+
+        {/* Row 2: Tab bar — Recent LEFT (default), Hot RIGHT */}
+        <View
+          onLayout={(event) => {
+            const width = event.nativeEvent.layout.width / 2;
+            if (width > 0) setTabWidth(width);
+          }}
+          style={{
+            position: 'relative',
+            flexDirection: 'row',
+            borderBottomWidth: 1,
+            borderBottomColor: colors.border,
+          }}
+        >
+          <Animated.View
+            style={{
+              position: 'absolute',
+              left: 0,
+              bottom: -1,
+              width: tabWidth,
+              height: 2,
+              backgroundColor: colors.brand,
+              transform: [{ translateX: tabUnderlineX }],
+            }}
+          />
+          {(["recent", "hot"] as const).map((mode) => {
+            const active = mode === sortMode;
+            return (
+              <PressableScale
+                key={mode}
+                scaleTo={0.98}
+                onPress={() => setSortMode(mode)}
+                style={{
+                  flex: 1,
+                  paddingVertical: spacing.md,
+                  alignItems: 'center',
+                  flexDirection: 'row',
+                  justifyContent: 'center',
+                  gap: spacing.xs,
+                }}
+              >
+                {mode === 'recent' ? (
+                  <ClockIcon size={16} color={active ? colors.brand : colors.textMuted} />
+                ) : (
+                  <FlameIcon size={16} color={active ? colors.brand : colors.textMuted} />
+                )}
+                <Text style={{
+                  color: active ? colors.brand : colors.textMuted,
+                  ...(active ? { ...typeScale.caption, fontFamily: typography.bodyBold } : typeScale.caption),
+                }}>
+                  {mode === 'recent' ? t('feed.recent') : t('feed.hot')}
+                </Text>
+              </PressableScale>
+            );
+          })}
+        </View>
+      </View>
+
+      {/* ── Feed list — scrolls under the sticky header ─────────── */}
       <FlashList
         data={questions}
         keyExtractor={(item) => item.id}
-        contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={{
           paddingHorizontal: spacing.md,
           paddingBottom: 132,
+          paddingTop: spacing.sm,
         }}
         ItemSeparatorComponent={() => <View style={{ height: spacing.md }} />}
         ListHeaderComponent={
-          <View style={{ gap: 0, marginBottom: spacing.sm, paddingTop: insets.top + spacing.md }}>
-            {/* Gear icon top-right */}
-            <View style={{ flexDirection: "row", justifyContent: "flex-end", marginBottom: spacing.xs }}>
-              <PressableScale onPress={() => router.push('/settings')} style={{ padding: spacing.xs }}>
-                <Ionicons name="settings-outline" size={22} color={colors.textMuted} />
-              </PressableScale>
-            </View>
+          error ? (
             <View
-              onLayout={(event) => {
-                const width = event.nativeEvent.layout.width / 2;
-                if (width > 0) {
-                  setTabWidth(width);
-                }
-              }}
               style={{
-                position: "relative",
-                flexDirection: "row",
-                borderBottomWidth: 1,
-                borderBottomColor: colors.border,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: colors.noBorder,
+                backgroundColor: colors.noSoft,
+                paddingHorizontal: spacing.md,
+                paddingVertical: spacing.sm,
+                marginBottom: spacing.sm,
               }}
             >
-              <Animated.View
-                style={{
-                  position: "absolute",
-                  left: 0,
-                  bottom: -1,
-                  width: tabWidth,
-                  height: 2,
-                  backgroundColor: colors.brand,
-                  transform: [{ translateX: tabUnderlineX }],
-                }}
-              />
-
-              {(["hot", "recent"] as const).map((mode) => {
-                const active = mode === sortMode;
-                return (
-                  <PressableScale
-                    key={mode}
-                    scaleTo={0.98}
-                    onPress={() => setSortMode(mode)}
-                    style={{
-                      flex: 1,
-                      paddingVertical: spacing.md,
-                      alignItems: "center",
-                      flexDirection: "row",
-                      justifyContent: "center",
-                      gap: spacing.xs,
-                    }}
-                  >
-                    {mode === "hot" ? (
-                      <FlameIcon size={16} color={active ? colors.brand : colors.textMuted} />
-                    ) : (
-                      <ClockIcon size={16} color={active ? colors.brand : colors.textMuted} />
-                    )}
-                    <Text
-                      style={{
-                        color: active ? colors.brand : colors.textMuted,
-                        ...(active ? { ...typeScale.caption, fontFamily: typography.bodyBold } : typeScale.caption),
-                      }}
-                    >
-                      {mode === "hot" ? t('feed.hot') : t('feed.recent')}
-                    </Text>
-                  </PressableScale>
-                );
-              })}
+              <Text style={{ color: colors.no, ...typeScale.caption, fontFamily: typography.bodySemiBold }}>
+                {error}
+              </Text>
             </View>
-
-            {error ? (
-              <View
-                style={{
-                  borderRadius: 12,
-                  borderWidth: 1,
-                  borderColor: colors.noBorder,
-                  backgroundColor: colors.noSoft,
-                  paddingHorizontal: spacing.md,
-                  paddingVertical: spacing.sm,
-                  marginTop: spacing.sm,
-                }}
-              >
-                <Text style={{ color: colors.no, ...typeScale.caption, fontFamily: typography.bodySemiBold }}>
-                  {error}
-                </Text>
-              </View>
-            ) : null}
-          </View>
+          ) : null
         }
         refreshControl={
           <RefreshControl

@@ -1,4 +1,5 @@
 import { Category } from "../constants/categories";
+import { getHardwareDeviceId } from "./hardwareDeviceId";
 
 export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:5000/v1";
 
@@ -33,7 +34,7 @@ export type AuthSession = {
   };
 };
 
-function buildHeaders(accessToken?: string, deviceId?: string) {
+function buildHeaders(accessToken?: string, deviceId?: string, hardwareId?: string) {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
@@ -44,6 +45,10 @@ function buildHeaders(accessToken?: string, deviceId?: string) {
 
   if (deviceId) {
     headers["X-Device-ID"] = deviceId;
+  }
+
+  if (hardwareId) {
+    headers["X-Hardware-ID"] = hardwareId;
   }
 
   return headers;
@@ -111,8 +116,9 @@ export async function fetchQuestions(
 }
 
 export async function fetchQuestionById(accessToken: string, questionId: string) {
+  const hardwareId = await getHardwareDeviceId();
   const response = await fetch(`${API_URL}/questions/${questionId}`, {
-    headers: buildHeaders(accessToken),
+    headers: buildHeaders(accessToken, undefined, hardwareId),
   });
 
   return readJsonOrThrow<Question>(response, "Failed to fetch question details.");
@@ -132,9 +138,10 @@ export async function createQuestion(
 }
 
 export async function voteOnQuestion(accessToken: string, questionId: string, vote: VoteValue) {
+  const hardwareId = await getHardwareDeviceId();
   const response = await fetch(`${API_URL}/questions/${questionId}/vote`, {
     method: "POST",
-    headers: buildHeaders(accessToken),
+    headers: buildHeaders(accessToken, undefined, hardwareId),
     body: JSON.stringify({ vote }),
   });
 

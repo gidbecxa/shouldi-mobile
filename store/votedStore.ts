@@ -1,16 +1,26 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
+import { createJSONStorage, persist } from "zustand/middleware";
 
-type VotedState = {
-  votedIds: Set<string>;
-  markVoted: (questionId: string) => void;
+interface VotedStore {
+  votes: Record<string, "yes" | "no">;
+  setVoted: (questionId: string, vote: "yes" | "no") => void;
+  getVote: (questionId: string) => "yes" | "no" | null;
   hasVoted: (questionId: string) => boolean;
-};
+}
 
-export const useVotedStore = create<VotedState>((set, get) => ({
-  votedIds: new Set<string>(),
-  markVoted: (questionId: string) =>
-    set((state) => ({
-      votedIds: new Set(state.votedIds).add(questionId),
-    })),
-  hasVoted: (questionId: string) => get().votedIds.has(questionId),
-}));
+export const useVotedStore = create<VotedStore>()(
+  persist(
+    (set, get) => ({
+      votes: {},
+      setVoted: (questionId, vote) =>
+        set((state) => ({ votes: { ...state.votes, [questionId]: vote } })),
+      getVote: (questionId) => get().votes[questionId] ?? null,
+      hasVoted: (questionId) => questionId in get().votes,
+    }),
+    {
+      name: "voted-questions",
+      storage: createJSONStorage(() => AsyncStorage),
+    },
+  ),
+);

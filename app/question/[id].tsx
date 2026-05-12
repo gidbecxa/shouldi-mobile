@@ -30,8 +30,7 @@ import { colors } from "../../constants/colors";
 import { spacing } from "../../constants/spacing";
 import { typeScale, typography } from "../../constants/typography";
 import { getTimeLeftLabel, getTimeLeftShortLabel } from "../../lib/time";
-import {
-  fetchQuestionById,
+import { fetchQuestionById,
   logShare,
   Question,
   reportQuestion,
@@ -39,6 +38,7 @@ import {
   VoteValue,
 } from "../../lib/api";
 import { useUserStore } from "../../store/userStore";
+import { useVotedStore } from "../../store/votedStore";
 
 type ReportReason = "harmful" | "inappropriate" | "spam" | "personal_attack";
 
@@ -48,6 +48,8 @@ export default function QuestionDetailScreen() {
   const params = useLocalSearchParams<{ id: string }>();
   const accessToken = useUserStore((state) => state.accessToken);
   const { t } = useTranslation();
+  const getLocalVote = useVotedStore((state) => state.getVote);
+  const setVotedLocal = useVotedStore((state) => state.setVoted);
   const REPORT_OPTIONS: Array<{ label: string; value: ReportReason }> = [
     { label: t('detail.reportHarmful'), value: "harmful" },
     { label: t('detail.reportInappropriate'), value: "inappropriate" },
@@ -77,7 +79,9 @@ export default function QuestionDetailScreen() {
 
       try {
         const payload = await fetchQuestionById(accessToken, params.id);
-        setQuestion(payload);
+        // Local voted cache is source of truth — overrides stale API response
+        const localVote = getLocalVote(params.id);
+        setQuestion({ ...payload, user_voted: localVote ?? payload.user_voted });
       } catch (error) {
         setStatusMessage(error instanceof Error ? error.message : "Failed to load question.");
       }
@@ -141,7 +145,7 @@ export default function QuestionDetailScreen() {
           user_voted: payload.user_vote,
         };
       });
-
+      setVotedLocal(params.id, vote); // Persist to local cache immediately
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       void maybeShowFirstVoteNudge(setShowNudge);
       void maybePromptRating(payload.yes_count + payload.no_count);
