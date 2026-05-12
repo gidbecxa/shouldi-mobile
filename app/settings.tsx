@@ -27,7 +27,7 @@ export default function SettingsScreen() {
           gap: spacing.sm,
         }}
       >
-        <PressableScale onPress={() => router.back()} style={{ padding: spacing.xs }}>
+        <PressableScale onPress={() => router.canGoBack() ? router.back() : router.replace('/')} style={{ padding: spacing.xs }}>
           <Text style={{ ...typeScale.title, color: colors.brand }}>←</Text>
         </PressableScale>
         <Text style={{ ...typeScale.title, color: colors.textPrimary, fontFamily: typography.display }}>

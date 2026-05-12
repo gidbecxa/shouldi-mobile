@@ -252,7 +252,7 @@ export default function QuestionDetailScreen() {
         }}
       >
         <DetailHeader
-          onBack={() => router.back()}
+          onBack={() => router.canGoBack() ? router.back() : router.replace('/')}
           onOpenMenu={() => {
             setMenuSheetVisible(true);
           }}
