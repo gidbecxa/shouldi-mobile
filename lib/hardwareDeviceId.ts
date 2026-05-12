@@ -18,7 +18,7 @@ export async function getHardwareDeviceId(): Promise<string> {
       id = (await Application.getIosIdForVendorAsync()) ?? `ios_${Constants.sessionId}_${Date.now()}`;
     } else if (Platform.OS === "android") {
       // Stable unless the user factory-resets or sideloads a different app ID
-      id = Application.androidId ?? `android_${Constants.sessionId}_${Date.now()}`;
+      id = (await Application.getAndroidId()) ?? `android_${Constants.sessionId}_${Date.now()}`;
     } else {
       id = `web_${Constants.sessionId}_${Date.now()}`;
     }
