@@ -1,3 +1,4 @@
+import '../lib/i18n'; // Must be first — initializes i18n before any screen renders
 import Ionicons from "@expo/vector-icons/Ionicons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { BlurView } from "expo-blur";
@@ -19,6 +20,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { useFonts } from "expo-font";
 import { Tabs, useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Platform, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -78,6 +80,7 @@ async function savePersistedSession(payload: PersistedSession) {
 
 export default function RootLayout() {
   const router = useRouter();
+  const { t } = useTranslation();
   const deviceId = useUserStore((state) => state.deviceId);
   const accessToken = useUserStore((state) => state.accessToken);
   const setDeviceId = useUserStore((state) => state.setDeviceId);
@@ -160,18 +163,18 @@ export default function RootLayout() {
   const onboardingSlides = [
     {
       eyebrow: "Signal",
-      title: "              ",
-      description: "Drop a short dilemma anonymously. No profile, no context switch, no performance.",
+      title: t('onboarding.slide1Title'),
+      description: t('onboarding.slide1Body'),
     },
     {
       eyebrow: "Speed",
-      title: "Get crowd clarity in seconds",
-      description: "Read the room instantly with one-tap YES/NO voting on live decisions.",
+      title: t('onboarding.slide2Title'),
+      description: t('onboarding.slide2Body'),
     },
     {
       eyebrow: "Momentum",
-      title: "Turn outcomes into share cards",
-      description: "Publish polished result snapshots and pull fresh opinions from your circle.",
+      title: t('onboarding.slide3Title'),
+      description: t('onboarding.slide3Body'),
     },
   ];
 
@@ -412,7 +415,7 @@ export default function RootLayout() {
               }}
             >
               <Text style={{ color: colors.textSecondary, fontFamily: typography.bodySemiBold, fontSize: 12 }}>
-                Skip
+                {t('onboarding.skip')}
               </Text>
             </PressableScale>
           </View>
@@ -495,7 +498,7 @@ export default function RootLayout() {
             }}
           >
             <Text style={{ color: colors.textPrimary, fontFamily: typography.bodyBold, fontSize: 16 }}>
-              {isLastStep ? "Enter Should I" : "Continue"}
+              {isLastStep ? t('onboarding.start') : t('onboarding.next')}
             </Text>
           </PressableScale>
         </View>
@@ -690,7 +693,7 @@ export default function RootLayout() {
         <Tabs.Screen
           name="index"
           options={{
-            tabBarLabel: "Feed",
+            tabBarLabel: t('tabs.feed'),
           }}
         />
 
@@ -704,12 +707,21 @@ export default function RootLayout() {
         <Tabs.Screen
           name="mine"
           options={{
-            tabBarLabel: "Mine",
+            tabBarLabel: t('tabs.mine'),
           }}
         />
 
         <Tabs.Screen
           name="question/[id]"
+          options={{
+            href: null,
+            tabBarStyle: { display: "none" },
+            tabBarItemStyle: { display: "none" },
+          }}
+        />
+
+        <Tabs.Screen
+          name="settings"
           options={{
             href: null,
             tabBarStyle: { display: "none" },

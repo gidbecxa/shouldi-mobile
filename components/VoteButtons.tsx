@@ -1,5 +1,6 @@
 import * as Haptics from "expo-haptics";
 import { Pressable, Text, View } from "react-native";
+import { useTranslation } from "react-i18next";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -20,6 +21,7 @@ const SNAP = { damping: 22, stiffness: 380 };
 const BOUNCE = { damping: 10, stiffness: 200 };
 
 export function VoteButtons({ onVote, disabled = false, pendingVote = null }: VoteButtonsProps) {
+  const { t } = useTranslation();
   const yesScale = useSharedValue(1);
   const noScale = useSharedValue(1);
 
@@ -66,7 +68,7 @@ export function VoteButtons({ onVote, disabled = false, pendingVote = null }: Vo
               letterSpacing: 0.6,
             }}
           >
-            YES
+            {t('vote.yes')}
           </Text>
         </Pressable>
       </Animated.View>
@@ -95,7 +97,7 @@ export function VoteButtons({ onVote, disabled = false, pendingVote = null }: Vo
               letterSpacing: 0.6,
             }}
           >
-            NO
+            {t('vote.no')}
           </Text>
         </Pressable>
       </Animated.View>

@@ -5,6 +5,7 @@ import { fetchQuestions, Question, VoteValue } from "../lib/api";
 type FeedParams = {
   cursor?: string;
   sort?: "recent" | "hot";
+  language?: string;
 };
 
 function applyVote(question: Question, vote: VoteValue) {

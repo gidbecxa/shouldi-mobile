@@ -39,5 +39,9 @@ export async function requestPushToken() {
   }
 
   const tokenResult = await Notifications.getExpoPushTokenAsync({ projectId });
+  // TEMP: log both tokens so you can copy them for testing
+  const deviceToken = await Notifications.getDevicePushTokenAsync();
+  console.log("[notifications] Expo push token:", tokenResult.data);
+  console.log("[notifications] FCM registration token:", deviceToken.data);
   return tokenResult.data;
 }

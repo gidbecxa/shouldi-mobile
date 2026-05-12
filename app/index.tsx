@@ -1,17 +1,18 @@
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { getCurrentLanguage } from "../lib/i18n";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import {
   Animated,
-  FlatList,
-  LayoutAnimation,
   RefreshControl,
   Text,
   View,
-  ViewToken,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { FlashList } from "@shopify/flash-list";
 import { AppBackdrop } from "../components/AppBackdrop";
 import { EmptyState } from "../components/EmptyState";
 import { FeedQuestionCard } from "../components/FeedQuestionCard";
@@ -40,6 +41,7 @@ function extractRealtimeId(payloadRow: unknown): string | null {
 export default function FeedScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const accessToken = useUserStore((state) => state.accessToken);
   const userId = useUserStore((state) => state.userId);
   const {
@@ -57,7 +59,6 @@ export default function FeedScreen() {
   const [sortMode, setSortMode] = useState<"recent" | "hot">("hot");
   const [pendingVotes, setPendingVotes] = useState<Record<string, VoteValue>>({});
   const [tabWidth, setTabWidth] = useState(0);
-  const [visibleIds, setVisibleIds] = useState<Record<string, true>>({});
   const tabUnderlineX = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -65,7 +66,7 @@ export default function FeedScreen() {
       return;
     }
 
-    void loadFeed(accessToken, { sort: sortMode });
+    void loadFeed(accessToken, { sort: sortMode, language: getCurrentLanguage() });
   }, [accessToken, loadFeed, sortMode]);
 
   useEffect(() => {
@@ -133,10 +134,6 @@ export default function FeedScreen() {
       return;
     }
 
-    LayoutAnimation.configureNext(
-      LayoutAnimation.create(320, LayoutAnimation.Types.easeInEaseOut, LayoutAnimation.Properties.opacity),
-    );
-
     const previousFeed = applyOptimisticVote(questionId, vote);
     const previousMine = useMineStore.getState().applyOptimisticVote(questionId, vote);
     if (!previousFeed && !previousMine) {
@@ -168,40 +165,52 @@ export default function FeedScreen() {
     }
   };
 
-  const onViewableItemsChanged = useRef(
-    ({ viewableItems }: { viewableItems: Array<ViewToken & { item: Question }> }) => {
-      setVisibleIds((current) => {
-        let changed = false;
-        const next = { ...current };
+  // Stable ref so onVote callback never changes reference
+  const submitVoteRef = useRef(submitVote);
+  submitVoteRef.current = submitVote;
 
-        for (const viewable of viewableItems) {
-          const itemId = viewable.item?.id;
-          if (viewable.isViewable && itemId && !next[itemId]) {
-            next[itemId] = true;
-            changed = true;
-          }
-        }
+  const stableOnVote = useCallback((questionId: string, vote: VoteValue) => {
+    void submitVoteRef.current(questionId, vote);
+  }, []);
 
-        return changed ? next : current;
-      });
-    },
+  const stableOnOpen = useCallback((questionId: string) => {
+    router.push(`/question/${questionId}`);
+  }, [router]);
+
+  const renderItem = useCallback(
+    ({ item, index }: { item: Question; index: number }) => (
+      <FeedQuestionCard
+        question={item}
+        hasVoted={Boolean(item.user_voted)}
+        isVoteSubmitting={Boolean(pendingVotes[item.id])}
+        pendingVote={pendingVotes[item.id] ?? null}
+        animateDelay={(index % 8) * 50}
+        onVote={stableOnVote}
+        onOpen={stableOnOpen}
+      />
+    ),
+    [pendingVotes, stableOnVote, stableOnOpen],
   );
 
   return (
     <View collapsable={false} style={{ flex: 1 }}>
-      <FlatList
+      <FlashList
         data={questions}
         keyExtractor={(item) => item.id}
         contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={{
           paddingHorizontal: spacing.md,
-          gap: spacing.md,
           paddingBottom: 132,
         }}
-        onViewableItemsChanged={onViewableItemsChanged.current}
-        viewabilityConfig={{ itemVisiblePercentThreshold: 35 }}
+        ItemSeparatorComponent={() => <View style={{ height: spacing.md }} />}
         ListHeaderComponent={
           <View style={{ gap: 0, marginBottom: spacing.sm, paddingTop: insets.top + spacing.md }}>
+            {/* Gear icon top-right */}
+            <View style={{ flexDirection: "row", justifyContent: "flex-end", marginBottom: spacing.xs }}>
+              <PressableScale onPress={() => router.push('/settings')} style={{ padding: spacing.xs }}>
+                <Ionicons name="settings-outline" size={22} color={colors.textMuted} />
+              </PressableScale>
+            </View>
             <View
               onLayout={(event) => {
                 const width = event.nativeEvent.layout.width / 2;
@@ -255,7 +264,7 @@ export default function FeedScreen() {
                         ...(active ? { ...typeScale.caption, fontFamily: typography.bodyBold } : typeScale.caption),
                       }}
                     >
-                      {mode === "hot" ? "Hot" : "Recent"}
+                      {mode === "hot" ? t('feed.hot') : t('feed.recent')}
                     </Text>
                   </PressableScale>
                 );
@@ -287,29 +296,16 @@ export default function FeedScreen() {
             tintColor={colors.brand}
             onRefresh={() => {
               if (accessToken) {
-                void loadFeed(accessToken, { sort: sortMode });
+                void loadFeed(accessToken, { sort: sortMode, language: getCurrentLanguage() });
               }
             }}
           />
         }
-        renderItem={({ item, index }) => (
-          <FeedQuestionCard
-            question={item}
-            hasVoted={Boolean(item.user_voted)}
-            isVoteSubmitting={Boolean(pendingVotes[item.id])}
-            pendingVote={pendingVotes[item.id] ?? null}
-            animateIn={Boolean(visibleIds[item.id])}
-            animateDelay={(index % 8) * 50}
-            onVote={(questionId, vote) => {
-              void submitVote(questionId, vote);
-            }}
-            onOpen={(questionId) => router.push(`/question/${questionId}`)}
-          />
-        )}
+        renderItem={renderItem}
         ListEmptyComponent={
           <EmptyState
-            title="No active questions right now"
-            subtitle="Post something bold and the crowd will start shaping your answer."
+            title={t('feed.emptyTitle')}
+            subtitle={t('feed.emptySub')}
           />
         }
       />

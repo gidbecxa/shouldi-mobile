@@ -1,6 +1,7 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { useEffect, useRef } from "react";
+import { memo, useEffect, useRef } from "react";
 import { Animated, Text, View } from "react-native";
+import { useTranslation } from "react-i18next";
 
 import { colors } from "../constants/colors";
 import { spacing } from "../constants/spacing";
@@ -19,7 +20,6 @@ type FeedQuestionCardProps = {
   pendingVote?: "yes" | "no" | null;
   onVote: (questionId: string, vote: "yes" | "no") => void;
   onOpen: (questionId: string) => void;
-  animateIn?: boolean;
   animateDelay?: number;
 };
 
@@ -32,28 +32,22 @@ function getUrgencyColor(expiresAt: string) {
   return colors.textMuted;
 }
 
-export function FeedQuestionCard({
+export const FeedQuestionCard = memo(function FeedQuestionCard({
   question,
   hasVoted,
   isVoteSubmitting = false,
   pendingVote = null,
   onVote,
   onOpen,
-  animateIn = false,
   animateDelay = 0,
 }: FeedQuestionCardProps) {
   const timeLeft = getTimeLeftLabel(question.expires_at);
   const isClosed = timeLeft === "Closed";
+  const { t } = useTranslation();
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(12)).current;
 
   useEffect(() => {
-    if (!animateIn) {
-      opacity.setValue(0);
-      translateY.setValue(12);
-      return;
-    }
-
     Animated.parallel([
       Animated.timing(opacity, {
         toValue: 1,
@@ -68,7 +62,9 @@ export function FeedQuestionCard({
         useNativeDriver: true,
       }),
     ]).start();
-  }, [animateDelay, animateIn, opacity, translateY]);
+  // Intentionally run once on mount — animateDelay is stable per card position
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <Animated.View style={{ opacity, transform: [{ translateY }] }}>
@@ -88,7 +84,7 @@ export function FeedQuestionCard({
 
             {isClosed ? (
               <Text style={{ ...typeScale.micro, color: colors.textMuted, letterSpacing: 0.8, textTransform: "uppercase" }}>
-                Closed
+                {t('feed.closed')}
               </Text>
             ) : (
               <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.xs }}>
@@ -124,10 +120,7 @@ export function FeedQuestionCard({
               <ResultBar yesPercent={question.yes_percent} noPercent={100 - question.yes_percent} height={8} />
               <Text style={{ ...typeScale.micro, color: colors.textMuted }}>
                 <Text style={{ color: colors.yes }}>YES {question.yes_percent}%</Text>
-                <Text> · {question.total_votes.toLocaleString()} votes · You voted </Text>
-                <Text style={{ color: question.user_voted === "yes" ? colors.yes : colors.no }}>
-                  {question.user_voted?.toUpperCase()}
-                </Text>
+                <Text> · {t('feed.votes', { count: question.total_votes })} · {question.user_voted === 'yes' ? t('feed.youVotedYes') : t('feed.youVotedNo')}</Text>
               </Text>
             </View>
           ) : (
@@ -140,10 +133,10 @@ export function FeedQuestionCard({
 
               <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
                 <Text style={{ ...typeScale.micro, color: colors.textMuted }}>
-                  {question.total_votes.toLocaleString()} votes
+                  {t('feed.votes', { count: question.total_votes })}
                 </Text>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.xs }}>
-                  <Text style={{ ...typeScale.caption, color: colors.brand }}>See who's winning</Text>
+                  <Text style={{ ...typeScale.caption, color: colors.brand }}>{t('feed.seeWhoIsWinning')}</Text>
                   <Ionicons name="chevron-forward" size={16} color={colors.brand} />
                 </View>
               </View>
@@ -153,4 +146,4 @@ export function FeedQuestionCard({
       </PressableScale>
     </Animated.View>
   );
-}
+});

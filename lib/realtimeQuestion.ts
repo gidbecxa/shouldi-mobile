@@ -68,6 +68,7 @@ export function toRealtimeQuestion(row: unknown, currentUserId?: string | null):
     created_at: createdAt,
     user_voted: null,
     is_own: Boolean(currentUserId && authorId && authorId === currentUserId),
+    is_trending: false,
   };
 }
 

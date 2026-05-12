@@ -1,5 +1,6 @@
 import * as Haptics from "expo-haptics";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -17,6 +18,7 @@ import { categories } from "../constants/categories";
 import { spacing } from "../constants/spacing";
 import { typeScale, typography } from "../constants/typography";
 import { createQuestion, getLiveStats } from "../lib/api";
+import { getCurrentLanguage } from "../lib/i18n";
 import { useFeedStore } from "../store/feedStore";
 import { useMineStore } from "../store/mineStore";
 import { useUserStore } from "../store/userStore";
@@ -78,6 +80,9 @@ export default function PostScreen() {
   const accessToken = useUserStore((state) => state.accessToken);
   const insertFeedQuestion = useFeedStore((state) => state.insertQuestion);
   const prependMineQuestion = useMineStore((state) => state.prependMineQuestion);
+  const { t } = useTranslation();
+  const placeholders = t('post.placeholderExamples', { returnObjects: true }) as unknown as string[];
+  const [placeholder] = useState(() => placeholders[Math.floor(Math.random() * placeholders.length)] ?? t('post.placeholder'));
   const [question, setQuestion] = useState("");
   const [category, setCategory] = useState<(typeof categories)[number]>("Life");
   const [durationHours, setDurationHours] = useState<(typeof durations)[number]["value"]>(24);
@@ -96,12 +101,12 @@ export default function PostScreen() {
 
   const submitQuestion = async () => {
     if (!accessToken) {
-      setStatusMessage("Sign in is required before posting.");
+      setStatusMessage(t('post.signInRequired'));
       return;
     }
 
     if (question.trim().length === 0) {
-      setStatusMessage("Enter a question first.");
+      setStatusMessage(t('post.enterQuestion'));
       return;
     }
 
@@ -112,15 +117,16 @@ export default function PostScreen() {
         text: question.trim(),
         category,
         duration_hours: durationHours,
+        language: getCurrentLanguage(),
       });
 
       insertFeedQuestion(payload.question);
       prependMineQuestion(payload.question);
       setQuestion("");
-      setStatusMessage("Posted. Your question is now live.");
+      setStatusMessage(t('post.posted'));
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
-      setStatusMessage(error instanceof Error ? error.message : "Failed to post question.");
+      setStatusMessage(error instanceof Error ? error.message : t('errors.generic'));
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setIsPosting(false);
@@ -149,10 +155,10 @@ export default function PostScreen() {
               letterSpacing: -1,
             }}
           >
-            Ask the world
+            {t('post.header')}
           </Text>
           <Text style={{ ...typeScale.caption, color: colors.textSecondary, fontFamily: typography.mono }}>
-            120 characters. One sharp question.
+            {t('post.subheader', { max: 120 })}
           </Text>
         </View>
 
@@ -166,7 +172,7 @@ export default function PostScreen() {
           }}
         >
           <TextInput
-            placeholder="Should I...?"
+            placeholder={placeholder}
             placeholderTextColor={colors.textMuted}
             value={question}
             onChangeText={setQuestion}
@@ -204,7 +210,7 @@ export default function PostScreen() {
         >
           <View style={{ gap: spacing.sm }}>
             <Text style={{ ...typeScale.caption, color: colors.textSecondary }}>
-              Pick a category
+              {t('post.categoryLabel')}
             </Text>
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
               {categories.map((item) => {
@@ -220,7 +226,7 @@ export default function PostScreen() {
 
           <View style={{ gap: spacing.sm }}>
             <Text style={{ ...typeScale.caption, color: colors.textSecondary }}>
-              How long should this run?
+              {t('post.windowLabel')}
             </Text>
             <View style={{ flexDirection: "row", gap: spacing.sm }}>
               {durations.map((duration) => {
@@ -274,7 +280,7 @@ export default function PostScreen() {
           }}
         >
           <Text style={{ ...typeScale.title, color: colors.textPrimary, fontFamily: typography.bodyBold }}>
-            {isPosting ? "Posting..." : isTooLong ? "Too long" : "Publish Question"}
+            {isPosting ? t('post.posting') : isTooLong ? t('post.tooLong') : t('post.publishButton')}
           </Text>
         </PressableScale>
 
@@ -288,7 +294,7 @@ export default function PostScreen() {
               color: "#52525B",
             }}
           >
-            {activeVoters.toLocaleString()} people voting right now
+            {t('feed.liveVoters', { count: activeVoters })}
           </Text>
         )}
 
@@ -296,7 +302,7 @@ export default function PostScreen() {
           <Text
             style={{
               ...typeScale.body,
-              color: statusMessage.startsWith("Posted") ? colors.yes : colors.textSecondary,
+              color: statusMessage.startsWith("Posted") || statusMessage.startsWith("Publié") ? colors.yes : colors.textSecondary,
               textAlign: "center",
             }}
           >

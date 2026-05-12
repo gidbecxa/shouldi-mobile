@@ -18,6 +18,7 @@ export type Question = {
   user_voted: VoteValue | null;
   is_own: boolean;
   is_trending: boolean;
+  language?: string;
 };
 
 export type AuthSession = {
@@ -90,13 +91,14 @@ export async function fetchMe(accessToken: string) {
 
 export async function fetchQuestions(
   accessToken: string,
-  params?: { cursor?: string; category?: Category; sort?: "recent" | "hot"; limit?: number },
+  params?: { cursor?: string; category?: Category; sort?: "recent" | "hot"; limit?: number; language?: string },
 ): Promise<{ questions: Question[]; next_cursor: string | null }> {
   const query = new URLSearchParams();
   if (params?.cursor) query.set("cursor", params.cursor);
   if (params?.category) query.set("category", params.category);
   if (params?.sort) query.set("sort", params.sort);
   if (params?.limit) query.set("limit", String(params.limit));
+  if (params?.language) query.set("language", params.language);
 
   const response = await fetch(`${API_URL}/questions${query.toString() ? `?${query.toString()}` : ""}`, {
     headers: buildHeaders(accessToken),
@@ -118,7 +120,7 @@ export async function fetchQuestionById(accessToken: string, questionId: string)
 
 export async function createQuestion(
   accessToken: string,
-  body: { text: string; category: Category; duration_hours: 1 | 6 | 24 | 72 },
+  body: { text: string; category: Category; duration_hours: 1 | 6 | 24 | 72; language?: string },
 ) {
   const response = await fetch(`${API_URL}/questions`, {
     method: "POST",

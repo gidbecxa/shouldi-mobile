@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Animated,
   Modal,
@@ -23,6 +24,7 @@ type Props = {
 
 export function FirstVoteNudge({ visible, onDismiss }: Props) {
   const router = useRouter();
+  const { t } = useTranslation();
   const translateY = useRef(new Animated.Value(300)).current;
 
   useEffect(() => {
@@ -71,7 +73,7 @@ export function FirstVoteNudge({ visible, onDismiss }: Props) {
     dismiss();
     // Small delay so sheet animates out before navigation
     setTimeout(() => {
-      router.push("/(tabs)/post");
+      router.push("/post");
     }, 240);
   };
 
@@ -131,7 +133,7 @@ export function FirstVoteNudge({ visible, onDismiss }: Props) {
             marginBottom: 10,
           }}
         >
-          You just helped someone decide.
+          {t('nudge.title')}
         </Text>
 
         {/* Body */}
@@ -146,7 +148,7 @@ export function FirstVoteNudge({ visible, onDismiss }: Props) {
             paddingHorizontal: 8,
           }}
         >
-          Got something you're unsure about?{"\n"}The world is listening.
+          {t('nudge.body')}
         </Text>
 
         {/* CTA */}
@@ -161,14 +163,14 @@ export function FirstVoteNudge({ visible, onDismiss }: Props) {
           }}
         >
           <Text style={{ color: "#fff", fontFamily: typography.bodyBold, fontSize: 16 }}>
-            Ask something →
+            {t('nudge.cta')}
           </Text>
         </PressableScale>
 
         {/* Dismiss */}
         <PressableScale onPress={dismiss} style={{ alignItems: "center", paddingVertical: 8 }}>
           <Text style={{ color: colors.textMuted, fontFamily: typography.body, fontSize: 14 }}>
-            Maybe later
+            {t('nudge.dismiss')}
           </Text>
         </PressableScale>
       </Animated.View>

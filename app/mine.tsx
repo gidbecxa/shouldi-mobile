@@ -1,17 +1,18 @@
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
-  FlatList,
-  LayoutAnimation,
-  Platform,
+  Linking,
+  Pressable,
   RefreshControl,
   Text,
-  UIManager,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { FlashList } from "@shopify/flash-list";
 import { AppBackdrop } from "../components/AppBackdrop";
 import { EmptyState } from "../components/EmptyState";
 import { MineQuestionCard } from "../components/MineQuestionCard";
@@ -39,6 +40,7 @@ function extractRealtimeId(payloadRow: unknown): string | null {
 export default function MineScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const accessToken = useUserStore((state) => state.accessToken);
   const userId = useUserStore((state) => state.userId);
   const {
@@ -56,12 +58,6 @@ export default function MineScreen() {
   const [deleteTarget, setDeleteTarget] = useState<Question | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
-      UIManager.setLayoutAnimationEnabledExperimental(true);
-    }
-  }, []);
 
   useEffect(() => {
     if (!accessToken) {
@@ -155,8 +151,28 @@ export default function MineScreen() {
   ]);
 
   const totalVotes = items.reduce((acc, current) => acc + current.total_votes, 0);
-  const questionLabel = `${items.length.toLocaleString()} ${items.length === 1 ? "Question" : "Questions"}`;
-  const votesLabel = `${totalVotes.toLocaleString()} Total Votes`;
+  const questionLabel = t('mine.statQuestion', { count: items.length });
+  const votesLabel = t('mine.statVotes', { count: totalVotes });
+
+  const stableOnOpen = useCallback((questionId: string) => {
+    router.push(`/question/${questionId}`);
+  }, [router]);
+
+  const stableOnDelete = useCallback((questionId: string) => {
+    const item = useMineStore.getState().items.find((q) => q.id === questionId);
+    if (item) setDeleteTarget(item);
+  }, []);
+
+  const renderItem = useCallback(
+    ({ item }: { item: Question }) => (
+      <MineQuestionCard
+        question={item}
+        onOpen={stableOnOpen}
+        onDelete={stableOnDelete}
+      />
+    ),
+    [stableOnOpen, stableOnDelete],
+  );
 
   const handleDeleteQuestion = async () => {
     if (!accessToken || !deleteTarget) {
@@ -168,15 +184,14 @@ export default function MineScreen() {
     try {
       await deleteMyQuestion(accessToken, deleteTarget.id);
 
-      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       removeMineQuestion(deleteTarget.id);
       removeFeedQuestion(deleteTarget.id);
 
       setDeleteTarget(null);
-      setStatusMessage("Question deleted.");
+      setStatusMessage(t('errors.generic').replace('Something went wrong', 'Question deleted'));
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
-      setStatusMessage(error instanceof Error ? error.message : "Failed to delete question.");
+      setStatusMessage(error instanceof Error ? error.message : t('errors.generic'));
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setIsDeleting(false);
@@ -185,7 +200,7 @@ export default function MineScreen() {
 
   return (
     <View collapsable={false} style={{ flex: 1 }}>
-      <FlatList
+      <FlashList
         data={items}
         keyExtractor={(item) => item.id}
         contentInsetAdjustmentBehavior="automatic"
@@ -194,17 +209,23 @@ export default function MineScreen() {
           gap: spacing.md,
           paddingBottom: 132,
         }}
+        ItemSeparatorComponent={() => <View style={{ height: spacing.md }} />}
         ListHeaderComponent={
           <View style={{ gap: spacing.md, marginBottom: spacing.xs, paddingTop: insets.top + spacing.md }}>
             <View style={{ gap: spacing.sm }}>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
               <Text
                 style={{
                   ...typeScale.display_lg,
                   color: colors.textPrimary,
                 }}
               >
-                My Board
+                {t('mine.header')}
               </Text>
+              <PressableScale onPress={() => router.push('/settings')} style={{ padding: spacing.xs }}>
+                <Ionicons name="settings-outline" size={22} color={colors.textMuted} />
+              </PressableScale>
+            </View>
 
               <View style={{ flexDirection: "row", gap: spacing.sm }}>
                 <View
@@ -235,6 +256,15 @@ export default function MineScreen() {
                   </Text>
                 </View>
               </View>
+
+              {/* <Pressable
+                onPress={() => void Linking.openURL("mailto:support@shouldi.fun")}
+                style={{ marginTop: 2 }}
+              >
+                <Text style={{ ...typeScale.caption, color: colors.brand }}>
+                  support@shouldi.fun
+                </Text>
+              </Pressable> */}
             </View>
 
             {error ? (
@@ -270,20 +300,12 @@ export default function MineScreen() {
             }}
           />
         }
-        renderItem={({ item }) => (
-          <MineQuestionCard
-            question={item}
-            onOpen={(questionId) => router.push(`/question/${questionId}`)}
-            onDelete={() => {
-              setDeleteTarget(item);
-            }}
-          />
-        )}
+        renderItem={renderItem}
         ListEmptyComponent={
           <View style={{ marginTop: spacing.huge }}>
             <EmptyState
-              title="Nothing here yet"
-              subtitle="Ask anything. The world is ready to vote."
+              title={t('mine.emptyTitle')}
+              subtitle={t('mine.emptySub')}
               icon="help-circle-outline"
             />
 
@@ -298,7 +320,7 @@ export default function MineScreen() {
                 }}
               >
                 <Text style={{ ...typeScale.caption, color: colors.textPrimary, fontFamily: typography.bodyBold }}>
-                  Post your first question →
+                  {t('mine.emptyCTA')}
                 </Text>
               </PressableScale>
             </View>
@@ -339,9 +361,9 @@ export default function MineScreen() {
           }}
         />
 
-        <Text style={{ ...typeScale.title, color: colors.textPrimary }}>Delete this question?</Text>
+        <Text style={{ ...typeScale.title, color: colors.textPrimary }}>{t('mine.deleteTitle')}</Text>
         <Text style={{ ...typeScale.body, color: colors.textSecondary }}>
-          This can't be undone. Your votes will be lost.
+          {t('mine.deleteBody')}
         </Text>
 
         <View style={{ flexDirection: "row", gap: spacing.sm }}>
@@ -359,7 +381,7 @@ export default function MineScreen() {
               minHeight: 48,
             }}
           >
-            <Text style={{ ...typeScale.caption, color: colors.textSecondary }}>Cancel</Text>
+            <Text style={{ ...typeScale.caption, color: colors.textSecondary }}>{t('mine.deleteCancel')}</Text>
           </PressableScale>
 
           <PressableScale
@@ -377,7 +399,7 @@ export default function MineScreen() {
             }}
           >
             <Text style={{ ...typeScale.caption, color: colors.textPrimary, fontFamily: typography.bodyBold }}>
-              {isDeleting ? "Deleting..." : "Delete"}
+              {isDeleting ? t('mine.deleting') : t('mine.deleteConfirm')}
             </Text>
           </PressableScale>
         </View>

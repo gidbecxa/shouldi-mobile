@@ -1,3 +1,4 @@
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { Text, View } from "react-native";
 
 import { colors } from "../constants/colors";
@@ -11,7 +12,7 @@ type ShareCardPreviewProps = {
   questionId: string;
 };
 
-export function ShareCardPreview({ question, yesPercent, questionId }: ShareCardPreviewProps) {
+export function ShareCardPreview({ question, yesPercent }: ShareCardPreviewProps) {
   return (
     <View
       pointerEvents="none"
@@ -24,15 +25,19 @@ export function ShareCardPreview({ question, yesPercent, questionId }: ShareCard
         gap: spacing.sm,
       }}
     >
-      <View style={{ flexDirection: "row", gap: spacing.base }}>
-        <View style={{ flex: 1, gap: spacing.xs }}>
+      <View style={{ flexDirection: "row", gap: 12, alignItems: "flex-start" }}>
+        <View style={{ flex: 1, flexShrink: 1 }}>
           <Text style={{ ...typeScale.micro, color: colors.brand, fontFamily: typography.bodyBold }}>Should I?</Text>
-          <Text numberOfLines={2} style={{ ...typeScale.caption, color: colors.textPrimary }}>
+          <Text
+            style={{ ...typeScale.body, color: colors.textPrimary, marginTop: 4 }}
+            numberOfLines={2}
+            ellipsizeMode="tail"
+          >
             {question}
           </Text>
         </View>
 
-        <View style={{ width: 80, gap: spacing.xs, alignItems: "flex-end" }}>
+        <View style={{ width: 72, flexShrink: 0, alignItems: "flex-end", gap: 4 }}>
           <ResultBar yesPercent={yesPercent} noPercent={100 - yesPercent} height={8} />
           <Text style={{ ...typeScale.caption, color: colors.yes, fontFamily: typography.mono }}>{yesPercent}% YES</Text>
         </View>
@@ -40,16 +45,25 @@ export function ShareCardPreview({ question, yesPercent, questionId }: ShareCard
 
       <View
         style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
           borderTopWidth: 1,
           borderTopColor: colors.border,
-          paddingTop: spacing.sm,
-          flexDirection: "row",
-          justifyContent: "space-between",
-          alignItems: "center",
+          paddingTop: 10,
+          marginTop: 10,
         }}
       >
-        <Text style={{ ...typeScale.micro, color: colors.textMuted }}>shouldi.fun/q/{questionId}</Text>
-        <Text style={{ ...typeScale.micro, color: colors.brand, fontFamily: typography.bodySemiBold }}>Vote now →</Text>
+        <Text style={{ fontFamily: "DMMono_500Medium", fontSize: 11, color: colors.textMuted }}>
+          shouldi.fun
+        </Text>
+
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 3, flexShrink: 0 }}>
+          <Text style={{ fontFamily: "DMSans_600SemiBold", fontSize: 11, color: colors.brand }}>
+            Vote now
+          </Text>
+          <Ionicons name="chevron-forward" size={11} color={colors.brand} />
+        </View>
       </View>
     </View>
   );

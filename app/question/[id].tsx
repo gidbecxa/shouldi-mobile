@@ -15,12 +15,13 @@ import { captureRef } from "react-native-view-shot";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+import { useTranslation } from "react-i18next";
 import { AppBackdrop } from "../../components/AppBackdrop";
 import { DetailHeader } from "../../components/DetailHeader";
 import { FirstVoteNudge, maybeShowFirstVoteNudge } from "../../components/FirstVoteNudge";
 import { PressableScale } from "../../components/PressableScale";
 import { ResultBar } from "../../components/ResultBar";
-import { ShareCard } from "../../components/ShareCard";
+import { ShareCardFull } from "../../components/ShareCardFull";
 import { ShareCardPreview } from "../../components/ShareCardPreview";
 import { ShareBottomSheet } from "../../components/ShareBottomSheet";
 import { SlideUpSheet } from "../../components/SlideUpSheet";
@@ -41,18 +42,18 @@ import { useUserStore } from "../../store/userStore";
 
 type ReportReason = "harmful" | "inappropriate" | "spam" | "personal_attack";
 
-const REPORT_OPTIONS: Array<{ label: string; value: ReportReason }> = [
-  { label: "Harmful", value: "harmful" },
-  { label: "Inappropriate", value: "inappropriate" },
-  { label: "Spam", value: "spam" },
-  { label: "Personal Attack", value: "personal_attack" },
-];
-
 export default function QuestionDetailScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ id: string }>();
   const accessToken = useUserStore((state) => state.accessToken);
+  const { t } = useTranslation();
+  const REPORT_OPTIONS: Array<{ label: string; value: ReportReason }> = [
+    { label: t('detail.reportHarmful'), value: "harmful" },
+    { label: t('detail.reportInappropriate'), value: "inappropriate" },
+    { label: t('detail.reportSpam'), value: "spam" },
+    { label: t('detail.reportPersonalAttack'), value: "personal_attack" },
+  ];
   const [question, setQuestion] = useState<Question | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [isVoting, setIsVoting] = useState(false);
@@ -63,7 +64,7 @@ export default function QuestionDetailScreen() {
   const [menuSheetVisible, setMenuSheetVisible] = useState(false);
   const [reportSheetVisible, setReportSheetVisible] = useState(false);
   const [selectedReportReason, setSelectedReportReason] = useState<ReportReason>("inappropriate");
-  const shareCardRef = useRef<View>(null);
+  const shareCardFullRef = useRef<View>(null);
   const shareUrl = question ? `https://shouldi.fun/q/${question.id}?ref=link&via=app` : "";
   const cardUrl = question ? `https://shouldi.fun/q/${question.id}?ref=card&via=app` : "";
   const copyUrl = question ? `https://shouldi.fun/q/${question.id}?ref=copy&via=app` : "";
@@ -154,17 +155,16 @@ export default function QuestionDetailScreen() {
   };
 
   const handleShare = async () => {
-    if (!question || !shareCardRef.current) {
+    if (!question || !shareCardFullRef.current) {
       return;
     }
 
     setIsSharing(true);
 
     try {
-      const uri = await captureRef(shareCardRef, {
+      const uri = await captureRef(shareCardFullRef, {
         format: "png",
-        quality: 1,
-        result: "tmpfile",
+        quality: 1.0,
       });
 
       const shareMessage = `${question.text}\n\nVote now → ${cardUrl}`;
@@ -278,7 +278,7 @@ export default function QuestionDetailScreen() {
             </Text>
 
             <Text style={{ ...typeScale.micro, color: colors.brand }}>
-              {question.total_votes.toLocaleString()} votes · {question.yes_percent}% say YES so far
+              {t('detail.votesCountDetail', { count: question.total_votes, percent: question.yes_percent })}
             </Text>
 
             <View style={{ height: spacing.xl }} />
@@ -297,7 +297,7 @@ export default function QuestionDetailScreen() {
 
             {!question.user_voted && !isClosed ? (
               <View style={{ gap: spacing.md }}>
-                <Text style={{ ...typeScale.caption, color: colors.textSecondary }}>Cast your vote:</Text>
+                <Text style={{ ...typeScale.caption, color: colors.textSecondary }}>{t('detail.castVote')}</Text>
                 <VoteButtons
                   onVote={(vote) => {
                     void handleVote(vote);
@@ -325,11 +325,11 @@ export default function QuestionDetailScreen() {
                     fontFamily: typography.bodyBold,
                   }}
                 >
-                  You voted {question.user_voted.toUpperCase()} ✓
+                  {t('detail.youVoted', { vote: question.user_voted === 'yes' ? t('vote.yes') : t('vote.no') })} ✓
                 </Text>
               </View>
             ) : (
-              <Text style={{ ...typeScale.caption, color: colors.textMuted }}>Voting is closed.</Text>
+              <Text style={{ ...typeScale.caption, color: colors.textMuted }}>{t('detail.votingClosed')}</Text>
             )}
 
             <View style={{ height: spacing.xxl }} />
@@ -338,7 +338,7 @@ export default function QuestionDetailScreen() {
 
             <View style={{ height: spacing.xl }} />
 
-            <Text style={{ ...typeScale.caption, color: colors.textMuted }}>Share this question</Text>
+            <Text style={{ ...typeScale.caption, color: colors.textMuted }}>{t('share.title')}</Text>
 
             <ShareCardPreview
               question={question.text}
@@ -362,7 +362,7 @@ export default function QuestionDetailScreen() {
               }}
             >
               <Text style={{ ...typeScale.title, color: colors.textPrimary, fontFamily: typography.display }}>
-                Invite to Vote
+                {t('detail.inviteToVote')}
               </Text>
             </PressableScale>
 
@@ -381,32 +381,13 @@ export default function QuestionDetailScreen() {
               }}
             >
               <Text style={{ ...typeScale.caption, color: colors.brand, fontFamily: typography.bodyBold }}>
-                Share Link
+                {t('share.linkTitle')}
               </Text>
             </PressableScale>
 
-            <View
-              ref={shareCardRef}
-              collapsable={false}
-              style={{
-                position: "absolute",
-                left: -9999,
-                top: 0,
-                width: 1080,
-              }}
-            >
-              <ShareCard
-                question={question.text}
-                yesPercent={question.yes_percent}
-                noPercent={100 - question.yes_percent}
-                totalVotes={question.total_votes}
-                isActive={!isClosed}
-                questionId={question.id}
-              />
-            </View>
           </>
         ) : (
-          <Text style={{ ...typeScale.body, color: colors.textSecondary }}>Loading question...</Text>
+          <Text style={{ ...typeScale.body, color: colors.textSecondary }}>{t('detail.loading')}</Text>
         )}
 
         {statusMessage ? (
@@ -415,6 +396,17 @@ export default function QuestionDetailScreen() {
           </Text>
         ) : null}
       </ScrollView>
+
+      {/* Off-screen capture target for share image */}
+      {question ? (
+        <View style={{ position: "absolute", left: -99999, top: 0 }}>
+          <ShareCardFull
+            ref={shareCardFullRef}
+            question={question}
+            questionId={question.id}
+          />
+        </View>
+      ) : null}
 
       <AppBackdrop />
 
@@ -467,7 +459,7 @@ export default function QuestionDetailScreen() {
           }}
         >
           <Text style={{ ...typeScale.caption, color: colors.no, fontFamily: typography.bodyBold }}>
-            Report Question
+            {t('detail.reportQuestion')}
           </Text>
         </PressableScale>
 
@@ -485,7 +477,7 @@ export default function QuestionDetailScreen() {
             alignItems: "center",
           }}
         >
-          <Text style={{ ...typeScale.caption, color: colors.textSecondary }}>Copy Link</Text>
+          <Text style={{ ...typeScale.caption, color: colors.textSecondary }}>{t('share.copyLink')}</Text>
         </PressableScale>
 
         <PressableScale
@@ -497,7 +489,7 @@ export default function QuestionDetailScreen() {
             alignItems: "center",
           }}
         >
-          <Text style={{ ...typeScale.caption, color: colors.textMuted }}>Cancel</Text>
+          <Text style={{ ...typeScale.caption, color: colors.textMuted }}>{t('share.cancel')}</Text>
         </PressableScale>
       </SlideUpSheet>
 
@@ -521,9 +513,9 @@ export default function QuestionDetailScreen() {
           gap: spacing.sm,
         }}
       >
-        <Text style={{ ...typeScale.title, color: colors.textPrimary }}>Report question</Text>
+        <Text style={{ ...typeScale.title, color: colors.textPrimary }}>{t('detail.reportTitle')}</Text>
         <Text style={{ ...typeScale.caption, color: colors.textSecondary }}>
-          Choose a reason to help moderation review quickly.
+          {t('detail.reportBody')}
         </Text>
 
         {REPORT_OPTIONS.map((option) => {
@@ -565,7 +557,7 @@ export default function QuestionDetailScreen() {
               alignItems: "center",
             }}
           >
-            <Text style={{ ...typeScale.caption, color: colors.textSecondary }}>Cancel</Text>
+            <Text style={{ ...typeScale.caption, color: colors.textSecondary }}>{t('share.cancel')}</Text>
           </PressableScale>
 
           <PressableScale
@@ -583,7 +575,7 @@ export default function QuestionDetailScreen() {
             }}
           >
             <Text style={{ ...typeScale.caption, color: colors.textPrimary, fontFamily: typography.bodyBold }}>
-              {isReporting ? "Reporting..." : "Confirm"}
+              {isReporting ? t('detail.reporting') : t('detail.reportConfirm')}
             </Text>
           </PressableScale>
         </View>

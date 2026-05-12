@@ -1,5 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Text, View } from "react-native";
+import { useTranslation } from "react-i18next";
 
 import { colors } from "../constants/colors";
 import { spacing } from "../constants/spacing";
@@ -57,6 +58,7 @@ export function ShareBottomSheet({
   onCopyLink,
   isSharing = false,
 }: ShareBottomSheetProps) {
+  const { t } = useTranslation();
   return (
     <SlideUpSheet
       visible={visible}
@@ -85,33 +87,33 @@ export function ShareBottomSheet({
         }}
       />
 
-      <Text style={{ ...typeScale.title, color: colors.textPrimary, textAlign: "center" }}>Share this question</Text>
+      <Text style={{ ...typeScale.title, color: colors.textPrimary, textAlign: "center" }}>{t('share.title')}</Text>
       <Text style={{ ...typeScale.caption, color: colors.textSecondary, textAlign: "center" }}>
-        Choose how you want to share
+        {t('share.subtitle')}
       </Text>
 
       <ShareOptionCard
         icon="image-outline"
-        title="Share as Image"
-        subtitle="Best for Instagram Stories & WhatsApp Status"
+        title={t('share.imageTitle')}
+        subtitle={t('share.imageSub')}
         onPress={onShareImage}
         disabled={isSharing}
       />
 
       <ShareOptionCard
         icon="link-outline"
-        title="Share Link"
-        subtitle="Best for WhatsApp, iMessage, Telegram, X"
+        title={t('share.linkTitle')}
+        subtitle={t('share.linkSub')}
         onPress={onShareLink}
         disabled={isSharing}
       />
 
       <PressableScale onPress={onCopyLink} disabled={isSharing} style={{ alignItems: "center", paddingVertical: spacing.sm }}>
-        <Text style={{ ...typeScale.caption, color: colors.brand, fontFamily: typography.bodySemiBold }}>Copy link</Text>
+        <Text style={{ ...typeScale.caption, color: colors.brand, fontFamily: typography.bodySemiBold }}>{t('share.copyLink')}</Text>
       </PressableScale>
 
       <PressableScale onPress={onClose} style={{ alignItems: "center", paddingVertical: spacing.xs }}>
-        <Text style={{ ...typeScale.caption, color: colors.textSecondary }}>Cancel</Text>
+        <Text style={{ ...typeScale.caption, color: colors.textSecondary }}>{t('share.cancel')}</Text>
       </PressableScale>
     </SlideUpSheet>
   );
